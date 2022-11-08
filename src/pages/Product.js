@@ -77,7 +77,7 @@ export default function Product() {
               {product.title}
             </Typography>
             <Typography gutterBottom variant="h6" className={classes.price}>
-              $ {product.price} <span className={classes.condition}>(Incuding all taxes)</span>
+              € {product.price} <span className={classes.condition}>(Incuding all taxes)</span>
             </Typography>
             <Button
               variant="contained"

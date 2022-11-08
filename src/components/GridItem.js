@@ -66,7 +66,7 @@ export default function GridItem({ product }) {
           </Typography>
           <div className={classes.footer}>
             <Typography gutterBottom variant="h6" className={classes.price}>
-              $ {product.price}
+              € {product.price}
             </Typography>
           </div>
         </CardContent>

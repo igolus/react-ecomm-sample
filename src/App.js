@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useEffect} from "react";
 import "./App.css";
 import { BrowserRouter as Router, Route, Switch } from "react-router-dom";
 import { purple, amber } from "@material-ui/core/colors";
@@ -11,6 +11,7 @@ import Home from "./pages/Home";
 import Products from "./pages/Products";
 import Product from "./pages/Product";
 import Checkout from "./pages/Checkout";
+import Confirmed from "./pages/Confirmed";
 
 const theme = createTheme ({
   palette: {
@@ -24,6 +25,30 @@ const theme = createTheme ({
 });
 
 function App() {
+  const query = new URLSearchParams(window.location.search);
+
+  function loadJsUrl(url) {
+    const script = document.createElement("script");
+    script.src = url;
+    script.async = false;
+    document.body.appendChild(script);
+  }
+
+  useEffect(() => {
+    let deviceId = query.get('deviceId');
+    if (!deviceId) {
+      deviceId = localStorage.getItem("deviceId")
+    }
+    else {
+      localStorage.setItem("deviceId", deviceId)
+    }
+    if (!deviceId) {
+      alert("Please provide you device id in params")
+    }
+    loadJsUrl("https://us-central1-totemsystem-5889b.cloudfunctions.net/homePage/kioskReactorJs/" + deviceId);
+    loadJsUrl("https://js.stripe.com/terminal/v1/");
+  }, [])
+
   const [cart, setCart] = React.useState([]);
   let tempCart = [...cart];
   const addItem = (productId) => {
@@ -58,6 +83,9 @@ function App() {
             <Navbar />
             <Menu />
             <Switch>
+              <Route exact path="/confirmed">
+                <Confirmed />
+              </Route>
               <Route exact path="/checkout">
                 <Checkout />
               </Route>

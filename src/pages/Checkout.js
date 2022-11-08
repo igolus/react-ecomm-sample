@@ -1,16 +1,18 @@
-import React from "react";
-import { useHistory } from "react-router-dom";
-import { makeStyles } from "@material-ui/core/styles";
-import Stepper from "@material-ui/core/Stepper";
-import Step from "@material-ui/core/Step";
-import StepLabel from "@material-ui/core/StepLabel";
-import Button from "@material-ui/core/Button";
+import React, {useEffect, useState} from "react";
+import {makeStyles} from "@material-ui/core/styles";
 import CartContext from "../context/cart";
-
-import UserForm from "../components/UserForm";
-import ShippingForm from "../components/ShippingForm";
-import ConfirmDetails from "../components/ConfirmDetails";
-import PlaceOrder from "../components/PlaceOrder";
+import {useSelectedProducts} from "../hooks/useProducts";
+import Container from "@material-ui/core/Container";
+import {
+  addPaymentDoneListener,
+  initStripeTerminal,
+  sendTerminalPayment
+} from "../util/terminalUtil";
+import CheckIcon from "@material-ui/icons/Check";
+import Button from "@material-ui/core/Button";
+import {Box} from "@material-ui/core";
+import CircularProgress from "@material-ui/core/CircularProgress";
+import {useHistory} from "react-router-dom";
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -29,99 +31,85 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-function getSteps() {
-  return ["Enter personal details", "Shipping Address", "Confirm details", "Place order"];
-}
-function getStepContent(step, handleChange, state) {
-  switch (step) {
-    case 0:
-      return <UserForm handleChange={handleChange} state={state} />;
-    case 1:
-      return <ShippingForm handleChange={handleChange} state={state} />;
-    case 2:
-      return <ConfirmDetails state={state} />;
-    case 3:
-      return <PlaceOrder />;
-    default:
-      return "Unknown step";
-  }
-}
-function checkoutReducer(state, action) {
-  if (action.type === "changed") {
-    return {
-      ...state,
-      [action.key]: action.value,
-    };
-  }
-}
 export default function Checkout() {
-  const history = useHistory();
-  const cart = React.useContext(CartContext);
-  const [state, dispatch] = React.useReducer(checkoutReducer, {
-    firstName: "",
-    lastName: "",
-    email: "",
-    address: "",
-    city: "",
-    pincode: "",
-  });
+  const { cart, clearAll } = React.useContext(CartContext);
+  const { response: products, loading } = useSelectedProducts(cart);
+  const [total, setTotal] = useState(0);
+  const [terminalLoaded, setTerminalLoaded] = useState(false);
   const classes = useStyles();
-  const [activeStep, setActiveStep] = React.useState(0);
-  const steps = getSteps();
+  const history = useHistory();
 
-  const handleNext = () => {
-    if (activeStep === steps.length - 1) {
-      cart.clearAll();
-      history.push("/");
-    } else {
-      setActiveStep((prevActiveStep) => prevActiveStep + 1);
+  function getTicketCode() {
+    let code = "";
+    products.forEach(p => {
+      code += "printer.leftRight(\"" + p.quantity + "x" + p.title + "\", \"Euros "+ p.total + "\")\n"
+    })
+    const total = products.map((item) => item.total).reduce((prev, next) => prev + next);
+    code += "printer.drawLine()\n"
+    code += "printer.leftRight(\"" + "TOTAL" + "\", \"Euros "+ total + "\")\n"
+
+    console.log(code);
+    return code;
+  }
+
+  useEffect(() => {
+    if (products) {
+      window['clearListeners']();
+      window['initStripeTerminal'](() => {
+        setTerminalLoaded(true)
+      });
+      window['addPaymentDoneListener'](() => {
+        window['sendPrintTicket'](getTicketCode())
+        clearAll();
+        history.push("/confirmed");
+      })
     }
-  };
 
-  const handleBack = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep - 1);
-  };
+  }, [products])
 
-  const handleReset = () => {
-    setActiveStep(0);
-  };
-  const handleChange = ({ name, value }) => {
-    dispatch({ type: "changed", key: name, value });
-  };
+  useEffect(() => {
+    if (!products) {
+      return;
+    }
+    const updatedProducts = products.map((product) => {
+      const item = cart.find((item) => item.id === product.id);
+      product.quantity = item.quantity;
+      product.total = item.quantity * product.price;
+      return product;
+    });
+    const total = updatedProducts.map((item) => item.total).reduce((prev, next) => prev + next);
+    setTotal(total)
+  }, [products])
+
+
+  function pay() {
+    window['sendTerminalPayment'](total * 100)
+  }
+
   return (
-    <div className={classes.root}>
-      <Stepper activeStep={activeStep}>
-        {steps.map((label, index) => {
-          const stepProps = {};
-          const labelProps = {};
-          return (
-            <Step key={label} {...stepProps}>
-              <StepLabel {...labelProps}>{label}</StepLabel>
-            </Step>
-          );
-        })}
-      </Stepper>
-      <div>
-        {activeStep === steps.length ? (
-          <div>
-            <Button onClick={handleReset} className={classes.button}>
-              Reset
-            </Button>
-          </div>
-        ) : (
-          <div>
-            {getStepContent(activeStep, handleChange, state)}
-            <div className={classes.buttonContainer}>
-              <Button disabled={activeStep === 0} onClick={handleBack} className={classes.button}>
-                Back
+      <div className={classes.root}>
+        <Container maxWidth="lg" style={{textAlign: "center"}}>
+          {terminalLoaded ?
+            <>
+              <h1>Please pay using the payment terminal € {total}</h1>
+              <Button
+                  style={{marginTop: 5}}
+                  variant="contained"
+                  color="secondary"
+                  onClick={pay}
+                  className={classes.button}
+                  startIcon={<CheckIcon />}
+              >
+                Click here to pay with terminal
               </Button>
-              <Button variant="contained" color="primary" size="large" onClick={handleNext} className={classes.button}>
-                {activeStep === steps.length - 1 ? "Place order" : "Next"}
-              </Button>
-            </div>
-          </div>
-        )}
+            </>
+              :
+              <Box sx={{ display: 'flex', justifyContent: 'center' }} mt={5}>
+                <CircularProgress />
+              </Box>
+          }
+
+        </Container>
       </div>
-    </div>
   );
 }

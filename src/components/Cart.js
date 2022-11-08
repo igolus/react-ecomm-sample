@@ -65,7 +65,7 @@ function CartItem({ product }) {
           {product.title}
         </Typography>
         <Typography gutterBottom variant="subtitle1" color="secondary">
-          $ {product.price}
+          € {product.price}
         </Typography>
         <Typography gutterBottom variant="subtitle1" color="secondary">
           Quantity: {product.quantity}
@@ -119,7 +119,7 @@ function CartList({ products, cart, handleClose, clearAll }) {
         <Grid item xs={12} sm={4}>
           <Paper elevation={3} className={classes.paper}>
             <Typography gutterBottom variant="subtitle1" color="primary">
-              TOTAL: $ {total}
+              TOTAL: € {total}
             </Typography>
             <Button
               variant="contained"
